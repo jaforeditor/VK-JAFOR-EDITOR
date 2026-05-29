@@ -1,0 +1,38 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Create dummy files for validation
+      run: |
+        echo '{}' > config.json
+        echo '[]' > BADOL-Appstate.json
+        mkdir -p BADOL-Main
+        echo 'module.exports = function(api) {};' > BADOL-Main/badol.js
+        echo 'module.exports = { error: function() {}, cmd: function() {}, autoBanner: function() {} };' > BADOL-Main/logger.js
+
+    - name: Install Dependencies
+      run: npm install --legacy-peer-deps || npm install
+
+    - name: Validate Syntax
+      run: node --check index.js
