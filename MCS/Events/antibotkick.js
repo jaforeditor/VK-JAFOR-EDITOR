@@ -1,120 +1,136 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+const NOTICE_GROUP_ID = "3191064241091091"; 
+const OWNER_NAME = "MOHAMMAD BADOL"; 
+
 module.exports.config = {
     name: "antibotkick",
-    version: "5.0.2",
+    version: "5.5.0",
     credit: "MOHAMMAD BADOL",
-    description: "বট কেউ কিক/অ্যাড করলে Owner কে নোটিশ দিবে"
+    description: "Advanced monitoring for bot kicks, additions, and group name changes."
 };
 
 module.exports.onEvent = async function (api, event) {
-    // শুধু log:subscribe আর log:unsubscribe হ্যান্ডেল করব
     if (!event.logMessageType) return;
-    if (event.logMessageType!== "log:subscribe" && event.logMessageType!== "log:unsubscribe") return;
+    
+    if (event.logMessageType !== "log:subscribe" && 
+        event.logMessageType !== "log:unsubscribe" && 
+        event.logMessageType !== "log:thread-name") return;
 
     const { threadID, logMessageType, logMessageData, author } = event;
     const botID = api.getCurrentUserID();
+    const startTime = Date.now();
 
-    let config;
-    try {
-        config = require("../../config.json");
-    } catch (e) {
-        console.log("[ANTI-KICK] config.json লোড এরর");
+    if (logMessageType === "log:thread-name") {
+        setTimeout(async () => {
+            try {
+                const userInfo = await api.getUserInfo(author);
+                const changerName = userInfo[author]?.name || "Unknown User";
+                const oldName = logMessageData.oldName || "No Name (Blank)";
+                const newName = logMessageData.name || "No Name (Blank)";
+                const latency = Date.now() - startTime;
+
+                const msg = `╭━━━━━━━━━━━━━━━━━━━━╮
+┃ 📝 𝐆𝐑𝐎𝐔𝐏 𝐍𝐀𝐌𝐄 𝐂𝐇𝐀𝐍𝐆𝐄𝐃 ┃
+╰━━━━━━━━━━━━━━━━━━━━╯
+
+📢 ${OWNER_NAME} ভাই, গ্রুপের নাম পরিবর্তন করা হয়েছে!
+
+╔════════════════════╗
+║ 📋 𝐍𝐀𝐌𝐄 𝐃𝐄𝐓𝐀𝐈𝐋𝐒
+╚════════════════════╝
+❌ পুরাতন নাম: ${oldName}
+✅ নতুন নাম: ${newName}
+🆔 TID: ${threadID}
+
+╔════════════════════╗
+║ 👤 𝐂𝐇𝐀𝐍𝐆𝐄𝐃 𝐁𝐘
+╚════════════════════╝
+📛 নাম: ${changerName}
+🆔 UID: ${author}
+🔗 প্রোফাইল: fb.com/${author}
+
+⚡ রেসপন্স স্পিড: ${latency}ms
+⏰ সময়: ${new Date().toLocaleString("bn-BD", { timeZone: "Asia/Dhaka" })}
+`;
+                await api.sendMessage(msg, NOTICE_GROUP_ID);
+            } catch (e) {}
+        }, 1000);
         return;
     }
 
-    const ownerID = config.OWNER_LOCK.ID;
-    const ownerName = config.OWNER_LOCK.NAME;
-
-    // ═══════════════════ বট অ্যাড করলে ═══════════════════
     if (logMessageType === "log:subscribe") {
         const botAdded = logMessageData.addedParticipants?.some(user => user.userFbId == botID);
-
         if (botAdded) {
-            // নিজে অ্যাড করলে নোটিশ অফ করতে চাইলে এই লাইন আনকমেন্ট কর
-            // if (author == ownerID) return;
-
             setTimeout(async () => {
                 try {
                     const threadInfo = await api.getThreadInfo(threadID);
                     const userInfo = await api.getUserInfo(author);
                     const adderName = userInfo[author]?.name || "Unknown User";
+                    const latency = Date.now() - startTime;
+                    const isCommunity = threadInfo.isGroup && threadInfo.threadType === "COMMUNITY_THREAD" ? "Community (Sub-Group)" : "Regular Group";
+                    const groupIcon = threadInfo.imageSrc || "No Icon Available";
 
                     const msg = `╭━━━━━━━━━━━━━━━━━━━━╮
-┃ ✅ 𝐁𝐎𝐓 𝐀𝐃𝐄𝐃 𝐍𝐎𝐓𝐈𝐂𝐄 ✅ ┃
+┃ ✅ 𝐁𝐎𝐓 𝐀𝐃𝐃𝐄𝐃 𝐍𝐎𝐓𝐈𝐂𝐄 ✅ ┃
 ╰━━━━━━━━━━━━━━━━━━━━╯
 
-📢 ${ownerName} ভাই, আমাকে নতুন গ্রুপে অ্যাড করা হইছে!
+📢 ${OWNER_NAME} ভাই, আমাকে নতুন গ্রুপে অ্যাড করা হইছে!
 
 ╔════════════════════╗
 ║ 📊 𝐆𝐑𝐎𝐔𝐏 𝐈𝐍𝐅𝐎
 ╚════════════════════╝
 🏷️ নাম: ${threadInfo.threadName || "Unnamed Group"}
 🆔 TID: ${threadID}
+🗂️ টাইপ: ${isCommunity}
 👥 মেম্বার: ${threadInfo.participantIDs.length} জন
 👑 অ্যাডমিন: ${threadInfo.adminIDs.length} জন
 
 ╔════════════════════╗
-║ 👤 𝐀𝐃𝐄𝐃 𝐁𝐘
+║ 👤 𝐀𝐃𝐃𝐄𝐃 𝐁𝐘
 ╚════════════════════╝
 📛 নাম: ${adderName}
 🆔 UID: ${author}
 🔗 প্রোফাইল: fb.com/${author}
 
+⚡ রেসপন্স স্পিড: ${latency}ms
 ⏰ সময়: ${new Date().toLocaleString("bn-BD", { timeZone: "Asia/Dhaka" })}
-
-━━━━━━━━━━━━━━━━━━━━━━
-⚡ BADOL-BOT V5 এখন এই গ্রুপে এক্টিভ!`;
-
-                    await api.sendMessage(msg, ownerID);
-
-                    // গ্রুপে থ্যাংক ইউ মেসেজ
-                    await api.sendMessage(`✅ ধন্যবাদ ${adderName}! BADOL-BOT V5 এখন এই গ্রুপে এক্টিভ।\n\n/help লিখে সব কমান্ড দেখুন 🦵`, threadID);
-
-                } catch (e) {
-                    console.log("[ANTI-KICK ADD ERROR]", e.message);
-                }
+`;
+                    await api.sendMessage(msg, NOTICE_GROUP_ID);
+                } catch (e) {}
             }, 1500);
         }
     }
 
-    // ═══════════════════ বট কিক করলে ═══════════════════
     if (logMessageType === "log:unsubscribe") {
         if (logMessageData.leftParticipantFbId == botID) {
-            // নিজে কিক করলে নোটিশ অফ করতে চাইলে এই লাইন আনকমেন্ট কর
-            // if (author == ownerID) return;
-
             setTimeout(async () => {
                 try {
-                    let threadName = "Unknown Group";
-                    let kickerName = "Unknown User";
-
-                    // Thread নাম নেওয়ার ট্রাই
+                    let threadName = "Unknown Group", kickerName = "Unknown User", isCommunity = "Unknown";
                     try {
                         const threadInfo = await api.getThreadInfo(threadID);
                         threadName = threadInfo.threadName || "Unnamed Group";
-                    } catch (e) {
-                        console.log("[ANTI-KICK] কিক খাওয়ার পর thread info পাই নাই");
-                    }
-
-                    // কে কিক করছে
+                        isCommunity = threadInfo.isGroup && threadInfo.threadType === "COMMUNITY_THREAD" ? "Community (Sub-Group)" : "Regular Group";
+                    } catch (e) {}
                     try {
                         const userInfo = await api.getUserInfo(author);
                         kickerName = userInfo[author]?.name || "Unknown User";
                     } catch (e) {}
 
+                    const latency = Date.now() - startTime;
                     const msg = `╭━━━━━━━━━━━━━━━━━━━━╮
 ┃ ⚠️ 𝐁𝐎𝐓 𝐊𝐈𝐂𝐊𝐄𝐃 𝐀𝐋𝐄𝐑𝐓 ⚠️ ┃
 ╰━━━━━━━━━━━━━━━━━━━━╯
 
-🚨 ${ownerName} ভাই, আমাকে গ্রুপ থেকে কিক করা হইছে!
+🚨 ${OWNER_NAME} ভাই, আমাকে গ্রুপ থেকে কিক করা হইছে!
 
 ╔════════════════════╗
 ║ 📊 𝐆𝐑𝐎𝐔𝐏 𝐈𝐍𝐅𝐎
 ╚════════════════════╝
 🏷️ নাম: ${threadName}
 🆔 TID: ${threadID}
+🗂️ টাইপ: ${isCommunity}
 
 ╔════════════════════╗
 ║ 🔨 𝐊𝐈𝐂𝐊𝐄𝐃 𝐁𝐘
@@ -123,25 +139,16 @@ module.exports.onEvent = async function (api, event) {
 🆔 UID: ${author}
 🔗 প্রোফাইল: fb.com/${author}
 
+⚡ রেসপন্স স্পিড: ${latency}ms
 ⏰ সময়: ${new Date().toLocaleString("bn-BD", { timeZone: "Asia/Dhaka" })}
 
-━━━━━━━━━━━━━━━━━━━━━━
-💡 ${kickerName} কে ব্যান করতে চাইলে /ban ${author} লিখুন
-⚡ BADOL-BOT V5`;
-
-                    await api.sendMessage(msg, ownerID);
-
-                    // লগ ফাইলে সেভ
+💡 ব্যান করতে চাইলে /ban ${author} লিখুন
+`;
+                    await api.sendMessage(msg, NOTICE_GROUP_ID);
                     const logDir = path.join(__dirname, "../../logs");
                     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-
-                    const logFile = path.join(logDir, "kick_log.txt");
-                    const logData = `[${new Date().toISOString()}] KICKED from ${threadName} (${threadID}) by ${kickerName} (${author})\n`;
-                    fs.appendFileSync(logFile, logData);
-
-                } catch (e) {
-                    console.log("[ANTI-KICK KICK ERROR]", e.message);
-                }
+                    fs.appendFileSync(path.join(logDir, "kick_log.txt"), `[${new Date().toISOString()}] KICKED from ${threadName} (${threadID}) by ${kickerName} (${author})\n`);
+                } catch (e) {}
             }, 1000);
         }
     }
