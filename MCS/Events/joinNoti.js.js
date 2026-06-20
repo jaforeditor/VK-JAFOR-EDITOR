@@ -1,18 +1,5 @@
-const fs = require("fs-extra");
-const path = require("path");
-const axios = require("axios"); // নতুন অ্যাড করো
+const axios = require("axios");
 
-// Config লোড করার ফাংশন
-const getConfig = () => {
-    try {
-        const configPath = path.join(__dirname, "../../config.json");
-        return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch (e) {
-        return {};
-    }
-};
-
-// ছবি স্ট্রিম করার ফাংশন
 const getStream = async (url) => {
     try {
         const res = await axios.get(url, { responseType: "stream" });
@@ -26,28 +13,24 @@ module.exports = {
     config: {
         name: "joinNoti",
         credit: "MOHAMMAD BADOL",
-        description: "নতুন মেম্বার/বট এড হলে ওয়েলকাম মেসেজ + নিকনেম চেঞ্জ"
+        description: "Welcome Notification"
     },
 
     onEvent: async (api, event) => {
-        if (event.logMessageType!== "log:subscribe") return;
+        if (event.logMessageType !== "log:subscribe") return;
 
         const { threadID, logMessageData, author } = event;
         const botID = api.getCurrentUserID();
-        const config = getConfig();
 
-        // ছবির লিংক - Drive ডাউনলোড লিংক
-        const imgURL = "https://drive.google.com/uc?export=download&id=107tUEMU7YZWkKJfUzD7-tiPGVdOSY7wb";
+        const botName = "BADOL-BOT";
+        const ownerName = "MOHAMMAD BADOL";
+        const prefix = "/";
+        const imgURL = "https://drive.google.com/uc?export=download&id=11sDvR01uetgBfUiOQTLJsqkl_NevLJOL";
 
-        // গ্রুপের তথ্য
         const threadInfo = await api.getThreadInfo(threadID);
-        const groupName = threadInfo.threadName || "এই গ্রুপ";
+        const groupName = threadInfo.threadName || "Group";
         const memberCount = threadInfo.participantIDs.length;
-        const prefix = config.BOT_INFO?.PREFIX || "/";
-        const botName = config.BOT_INFO?.NAME || "BADOL-BOT";
-        const owner = config.OWNER_LOCK?.NAME || "MOHAMMAD BADOL";
 
-        // অ্যাডমিন নাম
         let adderName = "Admin";
         try {
             const adderInfo = await api.getUserInfo(author);
@@ -55,17 +38,11 @@ module.exports = {
         } catch (e) {}
 
         for (const user of logMessageData.addedParticipants) {
-            // চেক করো বট নিজে এড হইছে কিনা
             if (user.userFbId === botID) {
-                // 1. বটের নিকনেম চেঞ্জ করো
                 try {
                     await api.changeNickname(botName, threadID, botID);
-                    console.log(` Nickname changed to: ${botName}`);
-                } catch (e) {
-                    console.log(" Nickname change failed:", e.message);
-                }
+                } catch (e) {}
 
-                // 2. বট এড হইছে - ছবি সহ ওয়েলকাম
                 const botWelcomeMsg =
 `╭────────────────────────╮
 │ 🤖 𝗕𝗢𝗧 𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗 🤖 │
@@ -87,7 +64,7 @@ module.exports = {
 ${prefix}help
 
 ━━━━━━━━━━━━━━━━━━━━━━
-👑 𝗢𝗪𝗡𝗘𝗥: ${owner}
+👑 𝗢𝗪𝗡𝗘𝗥: ${ownerName}
 
 সবাইকে স্বাগতম! 🌸
 ╰────────────────────────╯`;
@@ -97,9 +74,7 @@ ${prefix}help
                     attachment: await getStream(imgURL)
                 }, threadID);
             } else {
-                // নরমাল মেম্বার এড হইছে - ছবি সহ ওয়েলকাম
                 const newUserName = user.fullName;
-
                 const memberMsg =
 `╔══════════════════════╗
 ║ 🎉 WELCOME 🎉 ║
